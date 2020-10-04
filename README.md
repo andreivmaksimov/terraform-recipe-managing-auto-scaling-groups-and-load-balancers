@@ -14,4 +14,4 @@ terraform plan
 terraform apply
 ```
 
-&copy; [Andrei Maksimov](https://www.linkedin.com/in/avmaksimov/) / [Dev-Ops-Notes.com](https://dev-ops-notes.com)
+&copy; [Andrei Maksimov](https://www.linkedin.com/in/avmaksimov/) / [Hands-On.Cloud](https://Hands-On.Cloud)
