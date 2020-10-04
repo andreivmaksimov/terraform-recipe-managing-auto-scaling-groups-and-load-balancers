@@ -2,66 +2,66 @@ resource "aws_vpc" "my_vpc" {
   cidr_block       = "10.0.0.0/16"
   enable_dns_hostnames = true
 
-  tags {
+  tags = {
     Name = "My VPC"
   }
 }
 
 resource "aws_subnet" "public_us_east_1a" {
-  vpc_id     = "${aws_vpc.my_vpc.id}"
+  vpc_id     = aws_vpc.my_vpc.id
   cidr_block = "10.0.0.0/24"
   availability_zone = "us-east-1a"
 
-  tags {
+  tags = {
     Name = "Public Subnet us-east-1a"
   }
 }
 
 resource "aws_subnet" "public_us_east_1b" {
-  vpc_id     = "${aws_vpc.my_vpc.id}"
+  vpc_id     = aws_vpc.my_vpc.id
   cidr_block = "10.0.1.0/24"
   availability_zone = "us-east-1b"
 
-  tags {
+  tags = {
     Name = "Public Subnet us-east-1b"
   }
 }
 
 resource "aws_internet_gateway" "my_vpc_igw" {
-  vpc_id = "${aws_vpc.my_vpc.id}"
+  vpc_id = aws_vpc.my_vpc.id
 
-  tags {
+  tags = {
     Name = "My VPC - Internet Gateway"
   }
 }
 
 resource "aws_route_table" "my_vpc_public" {
-    vpc_id = "${aws_vpc.my_vpc.id}"
+    vpc_id = aws_vpc.my_vpc.id
 
     route {
         cidr_block = "0.0.0.0/0"
-        gateway_id = "${aws_internet_gateway.my_vpc_igw.id}"
+        gateway_id = aws_internet_gateway.my_vpc_igw.id
     }
 
-    tags {
+    tags = {
         Name = "Public Subnets Route Table for My VPC"
     }
 }
 
 resource "aws_route_table_association" "my_vpc_us_east_1a_public" {
-    subnet_id = "${aws_subnet.public_us_east_1a.id}"
-    route_table_id = "${aws_route_table.my_vpc_public.id}"
+    subnet_id = aws_subnet.public_us_east_1a.id
+    route_table_id = aws_route_table.my_vpc_public.id
 }
 
 resource "aws_route_table_association" "my_vpc_us_east_1b_public" {
-    subnet_id = "${aws_subnet.public_us_east_1b.id}"
-    route_table_id = "${aws_route_table.my_vpc_public.id}"
+    subnet_id = aws_subnet.public_us_east_1b.id
+    route_table_id = aws_route_table.my_vpc_public.id
 }
 
 resource "aws_security_group" "allow_http" {
   name        = "allow_http"
   description = "Allow HTTP inbound connections"
-  vpc_id = "${aws_vpc.my_vpc.id}"
+  vpc_id = aws_vpc.my_vpc.id
 
   ingress {
     from_port   = 80
@@ -77,7 +77,7 @@ resource "aws_security_group" "allow_http" {
     cidr_blocks     = ["0.0.0.0/0"]
   }
 
-  tags {
+  tags = {
     Name = "Allow HTTP Security Group"
   }
 }
@@ -85,11 +85,11 @@ resource "aws_security_group" "allow_http" {
 resource "aws_launch_configuration" "web" {
   name_prefix = "web-"
 
-  image_id = "ami-09479453c5cde9639" # Amazon Linux AMI 2018.03.0 (HVM)
+  image_id = "ami-0947d2ba12ee1ff75" # Amazon Linux 2 AMI (HVM), SSD Volume Type
   instance_type = "t2.micro"
   key_name = "Lenovo T410"
 
-  security_groups = ["${aws_security_group.allow_http.id}"]
+  security_groups = [ aws_security_group.allow_http.id ]
   associate_public_ip_address = true
 
   user_data = <<USER_DATA
@@ -109,7 +109,7 @@ service nginx start
 resource "aws_security_group" "elb_http" {
   name        = "elb_http"
   description = "Allow HTTP traffic to instances through Elastic Load Balancer"
-  vpc_id = "${aws_vpc.my_vpc.id}"
+  vpc_id = aws_vpc.my_vpc.id
 
   ingress {
     from_port   = 80
@@ -125,7 +125,7 @@ resource "aws_security_group" "elb_http" {
     cidr_blocks     = ["0.0.0.0/0"]
   }
 
-  tags {
+  tags = {
     Name = "Allow HTTP through ELB Security Group"
   }
 }
@@ -133,13 +133,15 @@ resource "aws_security_group" "elb_http" {
 resource "aws_elb" "web_elb" {
   name = "web-elb"
   security_groups = [
-    "${aws_security_group.elb_http.id}"
+    aws_security_group.elb_http.id
   ]
   subnets = [
-    "${aws_subnet.public_us_east_1a.id}",
-    "${aws_subnet.public_us_east_1b.id}"
+    aws_subnet.public_us_east_1a.id,
+    aws_subnet.public_us_east_1b.id
   ]
+
   cross_zone_load_balancing   = true
+
   health_check {
     healthy_threshold = 2
     unhealthy_threshold = 2
@@ -147,12 +149,14 @@ resource "aws_elb" "web_elb" {
     interval = 30
     target = "HTTP:80/"
   }
+
   listener {
     lb_port = 80
     lb_protocol = "http"
     instance_port = "80"
     instance_protocol = "http"
   }
+
 }
 
 resource "aws_autoscaling_group" "web" {
@@ -164,11 +168,10 @@ resource "aws_autoscaling_group" "web" {
   
   health_check_type    = "ELB"
   load_balancers = [
-    "${aws_elb.web_elb.id}"
+    aws_elb.web_elb.id
   ]
 
-  launch_configuration = "${aws_launch_configuration.web.name}"
-  availability_zones = ["us-east-1a", "us-east-1b"]
+  launch_configuration = aws_launch_configuration.web.name
 
   enabled_metrics = [
     "GroupMinSize",
@@ -178,11 +181,11 @@ resource "aws_autoscaling_group" "web" {
     "GroupTotalInstances"
   ]
 
-  metrics_granularity="1Minute"
+  metrics_granularity = "1Minute"
 
   vpc_zone_identifier  = [
-    "${aws_subnet.public_us_east_1a.*.id}",
-    "${aws_subnet.public_us_east_1b.*.id}"
+    aws_subnet.public_us_east_1a.id,
+    aws_subnet.public_us_east_1b.id
   ]
 
   # Required to redeploy without an outage.
@@ -195,6 +198,7 @@ resource "aws_autoscaling_group" "web" {
     value               = "web"
     propagate_at_launch = true
   }
+
 }
 
 resource "aws_autoscaling_policy" "web_policy_up" {
@@ -202,7 +206,7 @@ resource "aws_autoscaling_policy" "web_policy_up" {
   scaling_adjustment = 1
   adjustment_type = "ChangeInCapacity"
   cooldown = 300
-  autoscaling_group_name = "${aws_autoscaling_group.web.name}"
+  autoscaling_group_name = aws_autoscaling_group.web.name
 }
 
 resource "aws_cloudwatch_metric_alarm" "web_cpu_alarm_up" {
@@ -215,12 +219,12 @@ resource "aws_cloudwatch_metric_alarm" "web_cpu_alarm_up" {
   statistic = "Average"
   threshold = "60"
 
-  dimensions {
-    AutoScalingGroupName = "${aws_autoscaling_group.web.name}"
+  dimensions = {
+    AutoScalingGroupName = aws_autoscaling_group.web.name
   }
 
   alarm_description = "This metric monitor EC2 instance CPU utilization"
-  alarm_actions = ["${aws_autoscaling_policy.web_policy_up.arn}"]
+  alarm_actions = [ aws_autoscaling_policy.web_policy_up.arn ]
 }
 
 resource "aws_autoscaling_policy" "web_policy_down" {
@@ -228,7 +232,7 @@ resource "aws_autoscaling_policy" "web_policy_down" {
   scaling_adjustment = -1
   adjustment_type = "ChangeInCapacity"
   cooldown = 300
-  autoscaling_group_name = "${aws_autoscaling_group.web.name}"
+  autoscaling_group_name = aws_autoscaling_group.web.name
 }
 
 resource "aws_cloudwatch_metric_alarm" "web_cpu_alarm_down" {
@@ -241,14 +245,14 @@ resource "aws_cloudwatch_metric_alarm" "web_cpu_alarm_down" {
   statistic = "Average"
   threshold = "10"
 
-  dimensions {
-    AutoScalingGroupName = "${aws_autoscaling_group.web.name}"
+  dimensions = {
+    AutoScalingGroupName = aws_autoscaling_group.web.name
   }
 
   alarm_description = "This metric monitor EC2 instance CPU utilization"
-  alarm_actions = ["${aws_autoscaling_policy.web_policy_down.arn}"]
+  alarm_actions = [ aws_autoscaling_policy.web_policy_down.arn ]
 }
 
-output "ELB IP" {
-  value = "${aws_elb.web_elb.dns_name}"
+output "elb_dns_name" {
+  value = aws_elb.web_elb.dns_name
 }
